@@ -8,29 +8,21 @@ import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
 from torch.nn.utils import clip_grad_norm
+from torch.autograd import Variable
 
 from dataset import TSNDataSet
 from models import TSN
 from transforms import *
 from opts import parser
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
 best_prec1 = 0
-
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def main():
     global args, best_prec1
     args = parser.parse_args()
 
-    if args.dataset == 'ucf101':
-        num_class = 101
-    elif args.dataset == 'hmdb51':
-        num_class = 51
-    elif args.dataset == 'kinetics':
-        num_class = 400
-    else:
-        raise ValueError('Unknown dataset '+args.dataset)
+    num_class = 2
 
     model = TSN(num_class, args.num_segments, args.modality,
                 base_model=args.arch,
@@ -43,7 +35,8 @@ def main():
     policies = model.get_optim_policies()
     train_augmentation = model.get_augmentation()
 
-    model = torch.nn.DataParallel(model).cuda()
+    # model = torch.nn.DataParallel(model).cuda()
+    model = model.cuda()
 
     if args.resume:
         if os.path.isfile(args.resume):
@@ -52,10 +45,8 @@ def main():
             args.start_epoch = checkpoint['epoch']
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
-            # print(("=> loaded checkpoint '{}' (epoch {})"
-            #       .format(args.evaluate, checkpoint['epoch'])))
             print(("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch'])))
+                  .format(args.evaluate, checkpoint['epoch'])))
         else:
             print(("=> no checkpoint found at '{}'".format(args.resume)))
 
@@ -104,7 +95,6 @@ def main():
 
     # define loss function (criterion) and optimizer
     criterion = torch.nn.CrossEntropyLoss().cuda()
-    
 
     for group in policies:
         print(('group: {} has {} params, lr_mult: {}, decay_mult: {}'.format(
@@ -160,9 +150,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        target = target.cuda(async=True)
-        input_var = torch.autograd.Variable(input)
-        target_var = torch.autograd.Variable(target)
+
+        target = target.cuda()
+        input_var = Variable(input).cuda()
+        target_var = Variable(target).cuda()
 
         # compute output
         output = model(input_var)
@@ -212,37 +203,38 @@ def validate(val_loader, model, criterion, iter, logger=None):
     model.eval()
 
     end = time.time()
-    for i, (input, target) in enumerate(val_loader):
-        target = target.cuda(async=True)
-        input_var = torch.autograd.Variable(input, volatile=True)
-        target_var = torch.autograd.Variable(target, volatile=True)
+    with torch.no_grad():
+        for i, (input, target) in enumerate(val_loader):
+            target = target.cuda()
+            input_var = Variable(input).cuda()
+            target_var = Variable(target).cuda()
 
-        # compute output
-        output = model(input_var)
-        loss = criterion(output, target_var)
+            # compute output
+            output = model(input_var)
+            loss = criterion(output, target_var)
 
-        # measure accuracy and record loss
-        prec1, prec5 = accuracy(output.data, target, topk=(1,5))
+            # measure accuracy and record loss
+            prec1, prec5 = accuracy(output.data, target, topk=(1,5))
 
-        losses.update(loss.data[0], input.size(0))
-        top1.update(prec1[0], input.size(0))
-        top5.update(prec5[0], input.size(0))
+            losses.update(loss.data[0], input.size(0))
+            top1.update(prec1[0], input.size(0))
+            top5.update(prec5[0], input.size(0))
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
 
-        if i % args.print_freq == 0:
-            print(('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                   i, len(val_loader), batch_time=batch_time, loss=losses,
-                   top1=top1, top5=top5)))
+            if i % args.print_freq == 0:
+                print(('Test: [{0}/{1}]\t'
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                       i, len(val_loader), batch_time=batch_time, loss=losses,
+                       top1=top1, top5=top5)))
 
-    print(('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Loss {loss.avg:.5f}'
-          .format(top1=top1, top5=top5, loss=losses)))
+        print(('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Loss {loss.avg:.5f}'
+              .format(top1=top1, top5=top5, loss=losses)))
 
     return top1.avg
 
