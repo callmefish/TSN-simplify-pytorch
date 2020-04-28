@@ -1,58 +1,83 @@
-import argparse
 import os
-import time
-import shutil
-import torch
-import torchvision
-import torch.nn.parallel
+import torch.optim as optim
+from dataset.dataset import TSNDataSet
+from model.model import TSN
+from dataset.transforms import *
+from config import parser
+from train import train, validate, test
+import utils
 import torch.backends.cudnn as cudnn
-import torch.optim
-from torch.nn.utils import clip_grad_norm
-from torch.autograd import Variable
-
-from dataset import TSNDataSet
-from models import TSN
-from transforms import *
-from opts import parser
 
 best_prec1 = 0
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+'''
+#fake dataset to make sure the whole net archetecture 
+#is correct before to run on GPUs
+
+import torch.utils.data as data
+class mydataset(data.Dataset):
+    def __init__(self):
+        super(mydataset, self).__init__()
+    def __len__(self):
+        return 4
+    def __getitem__(self,index):
+        return torch.rand(9,224,224),1
+'''
+
 
 def main():
     global args, best_prec1
     args = parser.parse_args()
 
-    num_class = 2
+    if not os.path.exists('./record'):
+        os.mkdir('./record')
+
+    cudnn.benchmark = True
+
+    if args.dataset == 'ucf101':
+        num_class = 101
+    elif args.dataset == 'hmdb51':
+        num_class = 51
+    elif args.dataset == 'kinetics':
+        num_class = 400
+    elif args.dataset == 'sthsth':
+        num_class = 2
+    else:
+        raise ValueError('Unknown dataset' + args.dataset)
 
     model = TSN(num_class, args.num_segments, args.modality,
-                base_model=args.arch,
-                consensus_type=args.consensus_type, dropout=args.dropout, partial_bn=not args.no_partialbn)
+                base_model=args.arch, consensus_type=args.consensus_type,
+                dropout=args.dropout, partial_bn=not args.nopartial_bn)
+
+    model = model.cuda()
+    #model = torch.nn.DataParallel(model).cuda()
+
+
+    # from torchsummary import summary
+    # summary(model, input_size=(54, 224, 224))
 
     crop_size = model.crop_size
     scale_size = model.scale_size
     input_mean = model.input_mean
     input_std = model.input_std
     policies = model.get_optim_policies()
-    train_augmentation = model.get_augmentation()
-
-    # model = torch.nn.DataParallel(model).cuda()
-    model = model.cuda()
+    train_augmentation = model.get_augmentation()  # 包括宽高比抖动、水平翻转
+    start_epoch = 0
 
     if args.resume:
         if os.path.isfile(args.resume):
-            print(("=> loading checkpoint '{}'".format(args.resume)))
+            print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
-            args.start_epoch = checkpoint['epoch']
+            start_epoch = checkpoint['epoch']
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
-            print(("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch'])))
+            print(("=> loaded checkpoint {} at epoch {}"). \
+                  format(args.resume, start_epoch + 1))
         else:
-            print(("=> no checkpoint found at '{}'".format(args.resume)))
+            print("=> no checkpoint found at {}".format(args.resume))
 
-    cudnn.benchmark = True
-
-    # Data loading code
     if args.modality != 'RGBDiff':
         normalize = GroupNormalize(input_mean, input_std)
     else:
@@ -60,14 +85,16 @@ def main():
 
     if args.modality == 'RGB':
         data_length = 1
-    elif args.modality in ['Flow', 'RGBDiff']:
+    else:
         data_length = 5
 
     train_loader = torch.utils.data.DataLoader(
-        dataset=TSNDataSet("", args.train_list, num_segments=args.num_segments,
+        TSNDataSet(args.root_path, args.train_list, num_segments=args.num_segments,
                    new_length=data_length,
                    modality=args.modality,
-                   image_tmpl="img_{:06d}.jpg" if args.modality in ["RGB", "RGBDiff"] else args.flow_prefix+"{}_{:06d}.jpg",
+                   On_Video=args.On_Video,
+                   interval=args.interval,
+                   image_tmpl="frame_{:06d}.jpg" if args.modality in ["RGB", "RGBDiff"] else "{}/{}/frame{:06d}.jpg",
                    transform=torchvision.transforms.Compose([
                        train_augmentation,
                        Stack(roll=args.arch == 'BNInception'),
@@ -78,10 +105,12 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     val_loader = torch.utils.data.DataLoader(
-        datset=TSNDataSet("", args.val_list, num_segments=args.num_segments,
+        TSNDataSet(args.root_path, args.val_list, num_segments=args.num_segments,
                    new_length=data_length,
                    modality=args.modality,
-                   image_tmpl="img_{:06d}.jpg" if args.modality in ["RGB", "RGBDiff"] else args.flow_prefix+"{}_{:06d}.jpg",
+                   On_Video=args.On_Video,
+                   interval=args.interval,
+                   image_tmpl="frame_{:06d}.jpg" if args.modality in ["RGB", "RGBDiff"] else "{}/{}/frame{:06d}.jpg",
                    random_shift=False,
                    transform=torchvision.transforms.Compose([
                        GroupScale(int(scale_size)),
@@ -92,198 +121,87 @@ def main():
                    ])),
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
+    '''
+    train_loader = torch.utils.data.DataLoader(
+        mydataset(),
+        batch_size=args.batch_size, shuffle=True,
+        num_workers=args.workers, pin_memory=True)
 
-    # define loss function (criterion) and optimizer
+    val_loader = torch.utils.data.DataLoader(
+        mydataset(),
+        batch_size=args.batch_size, shuffle=False,
+        num_workers=args.workers, pin_memory=True)
+    '''
+
     criterion = torch.nn.CrossEntropyLoss().cuda()
 
     for group in policies:
-        print(('group: {} has {} params, lr_mult: {}, decay_mult: {}'.format(
-            group['name'], len(group['params']), group['lr_mult'], group['decay_mult'])))
+        print('group: {} has {} params lr_mult: {}'.format(
+            group['name'], len(group['params']), group['lr_mult']))
 
-    optimizer = torch.optim.SGD(policies,
-                                args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+    optimizer = optim.SGD(policies, args.lr, momentum=0.9, weight_decay=args.weight_decay)
 
     if args.evaluate:
-        validate(val_loader, model, criterion, 0)
+        test(val_loader, model, num_class)
         return
 
-    for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch, args.lr_steps)
+    best_epoch = start_epoch
+    for epoch in range(start_epoch, args.epochs):
 
-        # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch)
+        print('Epoch {}/{}'.format(epoch + 1, args.epochs))
+        train(args.record_path, train_loader, model, criterion, optimizer, epoch, args.clip_gradient)
+        prec1 = validate(args.record_path,val_loader, model, criterion, epoch)
 
-        # evaluate on validation set
-        if (epoch + 1) % args.eval_freq == 0 or epoch == args.epochs - 1:
-            prec1 = validate(val_loader, model, criterion, (epoch + 1) * len(train_loader))
+        is_best = prec1 > best_prec1
+        best_prec1 = max(prec1, best_prec1)
 
-            # remember best prec@1 and save checkpoint
-            is_best = prec1 > best_prec1
-            best_prec1 = max(prec1, best_prec1)
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'arch': args.arch,
-                'state_dict': model.state_dict(),
-                'best_prec1': best_prec1,
-            }, is_best)
+        if is_best:
+            filename = args.record_path + args.modality + 'best.pth'
+            best_epoch = epoch
+        else:
+            filename = args.record_path + args.modality + str(epoch) + '.pth'
 
-
-def train(train_loader, model, criterion, optimizer, epoch):
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
-    top1 = AverageMeter()
-
-    if args.no_partialbn:
-        model.module.partialBN(False)
-    else:
-        model.module.partialBN(True)
-
-    # switch to train mode
-    model.train()
-
-    end = time.time()
-    for i, (input, target) in enumerate(train_loader):
-        # measure data loading time
-        data_time.update(time.time() - end)
-
-
-        target = target.cuda()
-        input_var = Variable(input).cuda()
-        target_var = Variable(target).cuda()
-
-        # compute output
-        output = model(input_var)
-        loss = criterion(output, target_var)
-
-        # measure accuracy and record loss
-        prec1 = accuracy(output.data, target, topk=(1,))
-        losses.update(loss.data[0], input.size(0))
-        top1.update(prec1[0], input.size(0))
-
-
-        # compute gradient and do SGD step
-        optimizer.zero_grad()
-
-        loss.backward()
-
-        if args.clip_gradient is not None:
-            total_norm = clip_grad_norm(model.parameters(), args.clip_gradient)
-            if total_norm > args.clip_gradient:
-                print("clipping gradient: {} with coef {}".format(total_norm, args.clip_gradient / total_norm))
-
-        optimizer.step()
-
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
-
-        if i % args.print_freq == 0:
-            print(('Epoch: [{0}][{1}/{2}], lr: {lr:.5f}\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                   epoch, i, len(train_loader), batch_time=batch_time,
-                   data_time=data_time, loss=losses, top1=top1, lr=optimizer.param_groups[-1]['lr'])))
-
-
-def validate(val_loader, model, criterion, iter, logger=None):
-    batch_time = AverageMeter()
-    losses = AverageMeter()
-    top1 = AverageMeter()
-
-    # switch to evaluate mode
-    model.eval()
-
-    end = time.time()
-    with torch.no_grad():
-        for i, (input, target) in enumerate(val_loader):
-            target = target.cuda()
-            input_var = Variable(input).cuda()
-            target_var = Variable(target).cuda()
-
-            # compute output
-            output = model(input_var)
-            loss = criterion(output, target_var)
-
-            # measure accuracy and record loss
-            prec1 = accuracy(output.data, target, topk=(1,))
-
-            losses.update(loss.data[0], input.size(0))
-            top1.update(prec1[0], input.size(0))
-
-            # measure elapsed time
-            batch_time.update(time.time() - end)
-            end = time.time()
-
-            if i % args.print_freq == 0:
-                print(('Test: [{0}/{1}]\t'
-                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                       i, len(val_loader), batch_time=batch_time, loss=losses,
-                       top1=top1)))
-
-        print(('Testing Results: Prec@1 {top1.avg:.3f} Loss {loss.avg:.5f}'
-              .format(top1=top1, loss=losses)))
-
-    return top1.avg
-
-
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    filename = '_'.join((args.snapshot_pref, args.modality.lower(), filename))
-    torch.save(state, filename)
-    if is_best:
-        best_name = '_'.join((args.snapshot_pref, args.modality.lower(), 'model_best.pth.tar'))
-        shutil.copyfile(filename, best_name)
-
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-
-def adjust_learning_rate(optimizer, epoch, lr_steps):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    decay = 0.1 ** (sum(epoch >= np.array(lr_steps)))
-    lr = args.lr * decay
-    decay = args.weight_decay
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr * param_group['lr_mult']
-        param_group['weight_decay'] = decay * param_group['decay_mult']
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
-
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
+        torch.save({
+            'epoch': epoch + 1,
+            'arch': args.arch,
+            'state_dict': model.state_dict(),
+            'best_prec1': best_prec1
+        }, filename)
+        if epoch - best_epoch > 10:
+            return
+        elif epoch - best_epoch > 5:
+            print('epoch {} best epoch{}'.format(epoch + 1, best_epoch + 1))
+            args.lr = utils.adjust_learning_rate(args.lr, optimizer)
 
 
 if __name__ == '__main__':
     main()
+
+    # import cv2
+    # import matplotlib.pyplot as plt
+    # import numpy as np
+    #
+    # cap = cv2.VideoCapture('/home/qx/project/data/sthsth/data/123022.webm')
+    #
+    # frame_counts = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    # print('count frames ', frame_counts)
+    # imglist = []
+    # for i in range(frame_counts):
+    #     cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+    #     res, frame = cap.read()
+    #
+    #     if res:
+    #         imglist.append(frame)
+    #         cv2.imshow("capture", frame)
+    #     else:
+    #         print(i, res)
+    #
+    #     if cv2.waitKey(50) & 0xFF == ord('q'):
+    #         break
+    # imglist = np.array(imglist[::8])
+    # print(imglist.shape)
+    # imglist = imglist.transpose((1, 0, 2, 3)).reshape(240, -1, 3)
+    # plt.imshow(imglist)
+    # plt.show()
+    #
+    #
