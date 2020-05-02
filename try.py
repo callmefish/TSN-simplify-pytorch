@@ -38,9 +38,8 @@ parser.add_argument('--flow_prefix', type=str, default='')
 args = parser.parse_args()
 
 
-num_class = 2
 
-net = TSN(num_class, 1, args.modality,
+net = TSN(2, 1, args.modality,
           base_model=args.arch,
           consensus_type=args.crop_fusion_type,
           dropout=args.dropout)
@@ -49,10 +48,6 @@ checkpoint = torch.load(args.weights)
 print("model epoch {} best prec@1: {}".format(checkpoint['epoch'], checkpoint['best_prec1']))
 
 
-# for k, v in list(checkpoint['state_dict'].items()):
-#     print(k)
-#     break
-# base_dict = {'.'.join(k.split('.')[1:]): v for k,v in list(checkpoint['state_dict'].items())}
 net.load_state_dict(checkpoint['state_dict'])
 
 if args.test_crops == 1:
@@ -111,7 +106,7 @@ def eval_video(video_data):
     # input_var = torch.autograd.Variable(data.view(-1, length, data.size(2), data.size(3)),
     #                                     volatile=True)
     rst = net(input_var).data.cpu().numpy().copy()
-    return rst.reshape((num_crop, 1, num_class)).mean(axis=0)[0]
+    return rst.reshape((num_crop, 1, 2)).mean(axis=0)[0]
 
 
 max_num = args.max_num if args.max_num > 0 else len(data_loader.dataset)

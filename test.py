@@ -1,0 +1,282 @@
+import argparse
+import time
+import os
+import pickle
+import shutil
+
+import numpy as np
+import torch.nn.parallel
+import torch.optim
+from sklearn.metrics import confusion_matrix
+
+from dataset import TSNDataSet
+from models import TSN
+from transforms import *
+from ops import ConsensusModule
+import cv2
+from glob import glob
+import json
+import matplotlib.pyplot as plt
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+# options
+parser = argparse.ArgumentParser(
+    description="Standard video-level testing")
+
+parser.add_argument('--test_list', type=str, default='video_test_list.txt')
+parser.add_argument('--weights', type=str, default='/home/yzy20161103/tsn-pytorch-master/record/flow/475_inceptionresnetv2_flow_model_best.pth.tar')
+parser.add_argument('--arch', type=str, default="inceptionv4")
+parser.add_argument('--batch_size', type=int, default=12)
+parser.add_argument('--save_scores', type=str, default="record/")
+parser.add_argument('--test_segments', type=int, default=10)
+parser.add_argument('--max_num', type=int, default=-1)
+parser.add_argument('--test_crops', type=int, default=10)
+parser.add_argument('--input_size', type=int, default=299)
+parser.add_argument('--crop_fusion_type', type=str, default='avg',
+                    choices=['avg', 'max', 'topk'])
+parser.add_argument('--k', type=int, default=3)
+parser.add_argument('--dropout', type=float, default=0.7)
+parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
+                    help='number of data loading workers (default: 4)')
+parser.add_argument('--video_name', type=str, default='sample_video/sample_video_04(S).mp4')
+
+args = parser.parse_args()
+rgb_whole_pred = {}
+opf_whole_pred = {}
+
+
+def main(rgb_net,opf_net,StartFrame):
+    rgb = TEST(rgb_net, 'RGB', StartFrame)
+    rgb.run()
+    opf = TEST(opf_net, 'Flow', StartFrame)
+    opf.run()
+
+    
+def rgb_model():
+    net = TSN(2, 1, 'RGB',
+          base_model=args.arch,
+          consensus_type=args.crop_fusion_type,
+          dropout=args.dropout)
+    checkpoint = torch.load("475_inceptionv4_rgb_model_best.pth.tar")
+    # print("model epoch {} best prec@1: {}".format(checkpoint['epoch'], checkpoint['best_prec1']))
+    net.load_state_dict(checkpoint['state_dict'])
+    return net
+
+def opf_model():
+    net = TSN(2, 1, 'Flow',
+          base_model=args.arch,
+          consensus_type=args.crop_fusion_type,
+          dropout=args.dropout)
+    checkpoint = torch.load("475_inceptionv4__flow_model_best.pth.tar")
+    # print("model epoch {} best prec@1: {}".format(checkpoint['epoch'], checkpoint['best_prec1']))
+    net.load_state_dict(checkpoint['state_dict'])
+    return net
+
+class TEST():
+    def __init__(self, net, modality,StartFrame):
+        self.net = net
+        self.modality = modality
+        self.StartFrame = StartFrame
+    
+    def run(self):
+        if args.test_crops == 1:
+            cropping = torchvision.transforms.Compose([GroupScale(self.net.scale_size), GroupCenterCrop(self.net.input_size)])
+        elif args.test_crops == 10:
+            cropping = torchvision.transforms.Compose([GroupOverSample(self.net.input_size, self.net.scale_size)])
+        else:
+            raise ValueError("Only 1 and 10 crops are supported while we got {}".format(args.test_crops))
+        
+        if self.modality == 'RGB':
+            root_path = 'record/temp_chunk/'
+            test_list = 'rgb_video_test_list.txt'
+        else:
+            root_path = 'record/temp_opf/'
+            test_list = 'opf_video_test_list.txt'
+        data_set = TSNDataSet(root_path, test_list, num_segments=args.test_segments,
+                       new_length=1 if self.modality == "RGB" else 5, 
+                       modality=self.modality, image_tmpl="frame_{:06d}.jpg", test_mode=True,
+                       transform=torchvision.transforms.Compose([
+                           cropping,
+                           Stack(roll=False),
+                           ToTorchFormatTensor(div=True),
+                           GroupNormalize(self.net.input_mean, self.net.input_std),
+                       ]))
+        data_loader = torch.utils.data.DataLoader(data_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
+        self.net.cuda()
+        self.net.eval()
+        data_gen = enumerate(data_loader)
+        output = []
+        for i, (keys, data, label) in data_gen:
+            a = data.chunk(args.test_segments, 1)
+            res = []
+            for j in a:
+                rst = self.eval_video((i, j, label))
+                res.append(rst)
+            output.append((res, label[0]))
+        if self.modality == 'RGB':
+            rgb_whole_pred[str(StartFrame)] = np.mean(output[0][0], axis=0)
+        else:
+            opf_whole_pred[str(StartFrame)] = np.mean(output[0][0], axis=0)
+        return
+        
+    
+    def eval_video(self,video_data):
+        i, data, label = video_data
+        num_crop = args.test_crops
+
+        if self.modality == 'RGB':
+            length = 3
+        elif self.modality == 'Flow':
+            length = 10
+        else:
+            raise ValueError("Unknown modality "+self.modality)
+
+        input_var = data.view(-1, length, data.size(2), data.size(3)).cuda()
+        rst = self.net(input_var).data.cpu().numpy().copy()
+        return rst.reshape((num_crop, 1, 2)).mean(axis=0)[0]
+
+
+def cal_for_frames(video_path, video_name, flow_path):
+    frames = glob(os.path.join(video_path, '*.jpg'))
+    frames.sort()
+    prev = cv2.UMat(cv2.imread(frames[0]))
+    prev = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
+    for i, frame_curr in enumerate(frames[1:]):
+        curr = cv2.UMat(cv2.imread(frame_curr))
+        curr = cv2.cvtColor(curr, cv2.COLOR_BGR2GRAY)
+        tmp_flow = compute_TVL1(prev, curr)
+        prev = curr
+        if not os.path.exists(os.path.join(flow_path, video_name + '_u')):
+            os.mkdir(os.path.join(flow_path, video_name + '_u'))
+        cv2.imwrite(os.path.join(flow_path, video_name + '_u', "frame_{:06d}.jpg".format(i+1)), tmp_flow[:, :, 0])
+        if not os.path.exists(os.path.join(flow_path, video_name + '_v')):
+            os.mkdir(os.path.join(flow_path, video_name + '_v'))
+        cv2.imwrite(os.path.join(flow_path, video_name + '_v', "frame_{:06d}.jpg".format(i+1)), tmp_flow[:, :, 1])
+    return
+
+
+def compute_TVL1(prev, curr, bound=15):
+    """Compute the TV-L1 optical flow."""
+    TVL1 = cv2.optflow.DualTVL1OpticalFlow_create()
+    flow = TVL1.calc(prev, curr, None)
+    flow = cv2.UMat.get(flow)
+    assert flow.dtype == np.float32
+
+    flow = (flow + bound) * (255.0 / (2 * bound))
+    flow = np.round(flow).astype(int)
+    flow[flow >= 255] = 255
+    flow[flow <= 0] = 0
+    return flow
+
+
+def extract_flow(video_path, video_name, flow_path):
+    cal_for_frames(video_path, video_name, flow_path)
+    print('complete:' + flow_path + video_name)
+    return
+
+def make_sure_dir(dir_path):
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+    return
+
+def change_txt(index):
+    f_video_test = open('rgb_video_test_list.txt', 'w')
+    f_video_test.write("{:s}\t\t{:d}\t{:d}\n".format('Slipping' + '/' + 'v_Slipping_g00_c00', index, 1))
+    f_video_test.close()
+    f_video_test = open('opf_video_test_list.txt', 'w')
+    f_video_test.write("{:s}\t\t{:d}\t{:d}\n".format('Slipping' + '/' + 'v_Slipping_g00_c00', index-1, 1))
+    f_video_test.close()
+    
+def softmax(data):
+    data_exp = np.exp(data)
+    return data_exp / np.sum(data_exp)
+
+
+if __name__ == '__main__':
+    start_time = time.time()
+    file_path = args.video_name
+    video_title = file_path.split('/')[-1][:-4]
+    print(video_title)
+    cap = cv2.VideoCapture(file_path)
+    if cap.isOpened():  
+        rate = cap.get(5)  
+        FrameNumber = cap.get(7)  
+        duration = FrameNumber / rate  
+        print(duration)
+    make_sure_dir('record/')
+    rgb_outPutDirName = 'record/temp_chunk/v_Slipping_g00_c00/'
+    opf_outPutDirName = 'record/temp_opf/'
+    make_sure_dir(rgb_outPutDirName)
+    make_sure_dir(opf_outPutDirName)
+    spatial_model = rgb_model()
+    motion_model = opf_model()
+    frame = 1
+    index = 0
+
+    while True:
+        res, image = cap.read()
+        if not res:
+            if index > 20:
+                extract_flow(rgb_outPutDirName, 'v_Slipping_g00_c00', opf_outPutDirName)
+                StartFrame = frame - len(os.listdir(rgb_outPutDirName))
+                change_txt(index)
+                main(spatial_model, motion_model, StartFrame)
+                
+            shutil.rmtree('record/temp_chunk/')
+            shutil.rmtree(opf_outPutDirName)
+            print('not res , not image')
+            break
+        else:
+            image = cv2.resize(image, (342, 256))
+            cv2.imwrite(rgb_outPutDirName + 'frame_' + str(index + 1).zfill(6) + '.jpg', image)
+            frame += 1
+            index += 1
+            if (frame - 1) % 30 == 0:
+                extract_flow(rgb_outPutDirName, 'v_Slipping_g00_c00', opf_outPutDirName)
+                change_txt(index)
+                StartFrame = frame - 31
+                main(spatial_model, motion_model, StartFrame)
+                shutil.rmtree(rgb_outPutDirName)
+                os.makedirs(rgb_outPutDirName)
+                shutil.rmtree(opf_outPutDirName)
+                os.makedirs(opf_outPutDirName)
+                index = 0
+
+    print('finish video analysis')
+    cap.release()
+    time_lable = {}
+    fig_x = []
+    fig_y = []
+    for key in list(rgb_whole_pred.keys()):
+        cur_time = float(key)/rate
+        new_key = str(float('%.3f'%cur_time))
+        new_value = softmax(rgb_whole_pred[key] + opf_whole_pred[key]).tolist()
+        time_lable[new_key] = new_value[0]
+        fig_x.append(cur_time)
+        fig_y.append(new_value[0])
+
+    print(time_lable)
+    with open('timeLable.json', 'w') as json_file:
+        json_str = json.dumps(time_lable)
+        json_file.write(json_str)
+        json_file.close()
+    fig_x_1 = fig_x[:1]
+    fig_y_1 = fig_y[:1]
+    
+    for i in range(1, len(fig_x)):
+        fig_x_1.append(fig_x[i]-0.001)
+        fig_x_1.append(fig_x[i])
+        fig_y_1.append(fig_y_1[-1])
+        fig_y_1.append(fig_y[i])
+    fig_x_1.append(duration)
+    fig_y_1.append(fig_y[-1])
+    plt.figure()
+    plt.plot(fig_x_1, fig_y_1, linewidth=2, color='lightskyblue')
+    plt.xlabel('time/s')
+    plt.ylabel('Slipping probability')
+    plt.ylim(0, 1)
+    plt.xlim(0, duration + 0.2)
+    plt.title('temporal segment network result')
+    plt.savefig('timeLable.jpg')
+    plt.show()

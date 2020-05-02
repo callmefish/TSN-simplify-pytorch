@@ -260,7 +260,7 @@ class InceptionV4(nn.Module):
         x = self.last_linear(x) 
         return x
 
-def inceptionv4(pretrained=True):
+def inceptionv4(pretrained=False):
     model = InceptionV4()
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['imagenet']))
