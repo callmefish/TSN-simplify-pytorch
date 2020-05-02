@@ -78,7 +78,7 @@ class TSN(nn.Module):
 
     def _prepare_base_model(self, base_model):
 
-        if 'resnet' in base_model or 'vgg' in base_model:
+        if base_model.startswith('resnet') or base_model.startswith('vgg'):
             self.base_model = getattr(torchvision.models, base_model)(True)
             self.base_model.last_layer_name = 'fc'
             self.input_size = 224
@@ -104,10 +104,10 @@ class TSN(nn.Module):
             elif self.modality == 'RGBDiff':
                 self.input_mean = self.input_mean * (1 + self.new_length)
 
-        elif 'inception' in base_model:
+        elif base_model.startswith('inception'):
             import tf_model_zoo
             self.base_model = getattr(tf_model_zoo, base_model)()
-            self.base_model.last_layer_name = 'classif'
+            self.base_model.last_layer_name = 'last_linear'
             self.input_size = 299
             self.input_mean = [0.5]
             self.input_std = [0.5]

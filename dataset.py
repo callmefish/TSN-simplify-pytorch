@@ -50,8 +50,10 @@ class TSNDataSet(data.Dataset):
             return [Image.open(os.path.join(path, self.image_tmpl.format(idx))).convert('RGB')]
         elif self.modality == 'Flow':
             path = os.path.join(self.root_path, directory)
-            x_img = Image.open(os.path.join(path, self.image_tmpl.format('x', idx))).convert('L')
-            y_img = Image.open(os.path.join(path, self.image_tmpl.format('y', idx))).convert('L')
+            path_u = path + '_u/'
+            path_v = path + '_v/'
+            x_img = Image.open(os.path.join(path_u, self.image_tmpl.format(idx))).convert('L')
+            y_img = Image.open(os.path.join(path_v, self.image_tmpl.format(idx))).convert('L')
 
             return [x_img, y_img]
 

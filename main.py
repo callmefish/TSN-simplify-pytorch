@@ -132,7 +132,7 @@ def main():
         is_best = prec1 > best_prec1
         best_prec1 = max(prec1, best_prec1)
         if is_best:
-            with open(args.record_path + args.modality.lower() + '/' + args.modality.lower() + '_video_preds.pickle','wb') as f:
+            with open(args.record_path + args.modality.lower() + '/' + args.snapshot_pref + args.modality.lower() + '_video_preds.pickle','wb') as f:
                 pickle.dump(pred_dict,f)
                 f.close()
                 
@@ -199,7 +199,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
             'Prec@1': [round(top1.avg.item(), 4)],
             'lr': optimizer.param_groups[0]['lr']
             }
-    record_info(info, args.record_path + args.modality.lower() + '/' + args.modality.lower() + '_train.csv', 'train')
+    record_info(info, args.record_path + args.modality.lower() + '/' + args.snapshot_pref + args.modality.lower() + '_train.csv', 'train')
 
 def validate(val_loader, model, criterion, epoch):
     batch_time = AverageMeter()
@@ -247,7 +247,7 @@ def validate(val_loader, model, criterion, epoch):
             'Loss': [round(losses.avg.item(), 5)],
             'Prec@1': [round(top1.avg.item(), 4)],
             }
-    record_info(info, args.record_path + args.modality.lower() + '/' + args.modality.lower() + '_test.csv', 'test')
+    record_info(info, args.record_path + args.modality.lower() + '/' + args.snapshot_pref + args.modality.lower() + '_test.csv', 'test')
     # print(('Testing Results: Prec@1 {top1.avg:.3f} Loss {loss.avg:.5f}'
     #       .format(top1=top1, loss=losses)))
 
@@ -255,10 +255,10 @@ def validate(val_loader, model, criterion, epoch):
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    filename = args.record_path + args.modality.lower() + '/' + '_'.join((args.snapshot_pref, args.modality.lower(), filename))
+    filename = args.record_path + args.modality.lower() + '/' + args.snapshot_pref + '_'.join((args.modality.lower(), filename))
     torch.save(state, filename)
     if is_best:
-        best_name = args.record_path + args.modality.lower() + '/' + '_'.join((args.snapshot_pref, args.modality.lower(), 'model_best.pth.tar'))
+        best_name = args.record_path + args.modality.lower() + '/' + args.snapshot_pref + '_'.join((args.modality.lower(), 'model_best.pth.tar'))
         shutil.copyfile(filename, best_name)
 
 
