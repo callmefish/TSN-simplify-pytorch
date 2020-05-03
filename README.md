@@ -2,4 +2,5 @@
 Binary action recognition simplified from TSN-pytorch
 
 # Run
-run the 'test.sh'
+please run the 'test.sh'
+there is a little change in it for better use
