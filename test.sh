@@ -1,6 +1,6 @@
 #!/bin/bash
 #replace the variables with your github repo url, repo name, test
-video name, json named by your UIN
+#video name, json named by your UIN
 GIT_REPO_URL="https://github.com/callmefish/TSN-simplify-pytorch.git"
 REPO="TSN-simplify-pytorch"
 VIDEO="./sample_video/sample_video_04(S).mp4"
