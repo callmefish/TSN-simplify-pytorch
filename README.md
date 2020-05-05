@@ -1,7 +1,7 @@
 # TSN-simplify-pytorch
 Binary action recognition simplified from TSN-pytorch
 
-# Run
+# Run csce636 model test for test.video
 please run the 'test.sh'\
 there is a little change in it for better use
 
@@ -22,16 +22,18 @@ GPUs: 1 x NVIDIA Tesla K80
  	```
  	git clone https://github.com/callmefish/TSN-simplify-pytorch.git
  	```
- 2. Download dataset and unzip them:\
+ 2. Download dataset and unzip them (if you don't want to train model, just ignore this step):\
 	[rgb_475](https://storage.cloud.google.com/ucf101_for_rar/video_data_475.zip?authuser=1)(gs://ucf101_for_rar/video_data_475.zip): A dataset of RGB frames extracted from 475 action videos\
 	[opt_475](https://storage.cloud.google.com/ucf101_for_rar/opt_475.zip?authuser=1)(gs://ucf101_for_rar/opt_475.zip): A dataset of TVL1 optical flow frames extracted from 475 action videos.\
 	[rgb_575](https://storage.cloud.google.com/ucf101_for_rar/video_data_575.zip?authuser=1) (gs://ucf101_for_rar/video_data_575.zip)(optional): A dataset of RGB frames extracted from 475 action videos.\
 	[opt_575](https://storage.cloud.google.com/ucf101_for_rar/opt_575.zip?authuser=1) (gs://ucf101_for_rar/opt_575.zip) (optional): A dataset of TVL1 optical flow frames extracted from 475 action videos.
   
 
- 3. Download model and unzip:\
-	[best_model_475](https://storage.cloud.google.com/ucf101_for_rar/opt_575.zip?authuser=1) (gs://ucf101_for_rar/best_model_475.zip): The spatial stream model and motion stream model trained from rgb_475 and opt_475 respectively.\
-  
+ 3. Download sample video:\
+	[sample_video](https://storage.cloud.google.com/ucf101_for_rar/sample_video.zip?authuser=1) (gs://ucf101_for_rar/sample_video.zip): Six sample videos.\
+ 4. Download model:\
+	[475_inceptionv4__flow_model_best.pth.tar](https://storage.cloud.google.com/ucf101_for_rar/475_inceptionv4__flow_model_best.pth.tar?authuser=1) (gs://ucf101_for_rar/475_inceptionv4__flow_model_best.pth.tar): Motion stream model.\
+	[475_inceptionv4_rgb_model_best.pth.tar](https://storage.cloud.google.com/ucf101_for_rar/475_inceptionv4_rgb_model_best.pth.tar?authuser=1) (gs://ucf101_for_rar/475_inceptionv4_rgb_model_best.pth.tar): Spatial stream model.\
 
-# Test model
-Run "test_model.py". You can change any models.
+# Test model for your own
+Run "test.py". You can change args in it.
