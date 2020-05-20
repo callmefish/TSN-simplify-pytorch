@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(
     description="Standard video-level testing")
 
 parser.add_argument('--test_list', type=str, default='video_test_list.txt')
-parser.add_argument('--flow_weights', type=str, default='record_old/flow/279_resnet101_flow_model_best.pth.tar')
-parser.add_argument('--rgb_weights', type=str, default='record_old/rgb/279_resnet101_rgb_model_best.pth.tar')
+parser.add_argument('--flow_weights', type=str, default='record_old/flow/570_resnet101_flow_model_best.pth.tar')
+parser.add_argument('--rgb_weights', type=str, default='record_old/rgb/570_resnet101_rgb_model_best.pth.tar')
 parser.add_argument('--arch', type=str, default="resnet101")
 parser.add_argument('--batch_size', type=int, default=12)
 parser.add_argument('--save_scores', type=str, default="record/")
@@ -40,7 +40,6 @@ parser.add_argument('--k', type=int, default=3)
 parser.add_argument('--dropout', type=float, default=0.1)
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--video_name', type=str, default='csce636test/6300_1.mp4')
 
 args = parser.parse_args()
 rgb_whole_pred = {}
@@ -233,6 +232,7 @@ def save_fig(x, y, title, save_path):
 if __name__ == '__main__':
     path = 'new_test/'
     path_sub = os.listdir(path)
+    path_sub.sort()
     for video_name in path_sub:
         make_sure_dir('record/')
         file_path = path + video_name
