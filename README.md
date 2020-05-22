@@ -29,13 +29,17 @@ GPUs: 1 x NVIDIA Tesla K80
 	[opt_575](https://storage.cloud.google.com/ucf101_for_rar/opt_575.zip?authuser=1) (gs://ucf101_for_rar/opt_575.zip) (optional): A dataset of TVL1 optical flow frames extracted from 475 action videos.\
 	[video_data_668](https://storage.cloud.google.com/ucf101_for_rar/video_data_668.zip?authuser=1) (gs://ucf101_for_rar/video_data_575.zip)(optional): A dataset of RGB frames and TVL1 optical flow frames extracted from 668 action videos.
 	
-  
+ 
 
  3. Download sample video:\
 	[sample_video](https://storage.cloud.google.com/ucf101_for_rar/sample_video.zip?authuser=1) (gs://ucf101_for_rar/sample_video.zip): twelve sample videos.\
+	
  4. Download model:\
 	[668_resnet101_flow_model_best.pth.tar](https://storage.cloud.google.com/ucf101_for_rar/668_resnet101_flow_model_best.pth.tar?authuser=1) (gs://ucf101_for_rar/668_resnet101_flow_model_best.pth.tar): Motion stream model.\
 	[668_resnet101_rgb_model_best.pth.tar](https://storage.cloud.google.com/ucf101_for_rar/668_resnet101_rgb_model_best.pth.tar?authuser=1) (gs://ucf101_for_rar/668_resnet101_rgb_model_best.pth.tar): Spatial stream model.\
+
+ 5. Before training model:\
+	If you want to train your own model, you need to revise some 'parser.add_argument', such as train_list, val_list, root_path and so on. If you only need to test real life videos, being focused on win-test.py is enough.
 
 # Test model for your own
 Run "test.py". You can change args in it.
