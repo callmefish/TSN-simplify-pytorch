@@ -337,15 +337,7 @@ if __name__ == '__main__':
                 one_count += 1
             if abs(i - 0) < 1e-4:
                 zero_count += 1
-        # if one_count/point_num > 0.9:
-        #     time_lable = {str(float('%.3f'%(float(key)/rate))): softmax(opf_whole_pred[key]).tolist()[0] for key in
-        #                   list(rgb_whole_pred.keys())}
-        #     fig_y = fig_y_opf.copy()
-        # elif zero_count / point_num > 0.9:
-        #     time_lable = {str(float('%.3f' % (float(key) / rate))): softmax(rgb_whole_pred[key]).tolist()[0] for key in
-        #                   list(rgb_whole_pred.keys())}
-        #     fig_y = fig_y_rgb.copy()
-
+        
         fig_x_1 = fig_x[:1]
         fig_y_1 = fig_y[:1]
         fig_y_rgb_1 = fig_y_rgb[:1]
