@@ -1,7 +1,7 @@
 # TSN-simplify-pytorch
 Binary action recognition simplified from TSN-pytorch
 
-# Run csce636 model test for test.video
+# Run csce636 model test for sample video
 please run the 'test.sh'\
 there is a little change in it for better use
 
