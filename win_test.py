@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(
     description="Standard video-level testing")
 
 parser.add_argument('--test_list', type=str, default='video_test_list.txt')
-parser.add_argument('--flow_weights', type=str, default='record_old/flow/570_resnet101_flow_model_best.pth.tar')
-parser.add_argument('--rgb_weights', type=str, default='record_old/rgb/570_resnet101_rgb_model_best.pth.tar')
+parser.add_argument('--flow_weights', type=str, default='570_resnet101_flow_model_best.pth.tar')
+parser.add_argument('--rgb_weights', type=str, default='570_resnet101_rgb_model_best.pth.tar')
 parser.add_argument('--arch', type=str, default="resnet101")
 parser.add_argument('--batch_size', type=int, default=12)
 parser.add_argument('--save_scores', type=str, default="record/")
@@ -230,6 +230,7 @@ def save_fig(x, y, title, save_path):
 
 
 if __name__ == '__main__':
+    make_sure_dir('result/')
     path = 'new_test/'
     path_sub = os.listdir(path)
     path_sub.sort()
@@ -323,7 +324,7 @@ if __name__ == '__main__':
             fig_y_opf.append(opf_value[0])
 
         json_str = json.dumps(time_lable)
-        with open('bucket1/' + video_title + '_' + 'timelabel.json', 'w') as json_file:
+        with open('result/529005218_' + video_title + '_' + 'timelabel.json', 'w') as json_file:
             json_file.write(json_str)
             json_file.close()
 
@@ -363,9 +364,9 @@ if __name__ == '__main__':
         fig_y_rgb_1.append(fig_y_rgb[-1])
         fig_y_opf_1.append(fig_y_opf[-1])
 
-        save_fig(fig_x_1, fig_y_1, 'TSN', 'bucket1/' + video_title + '_Part6.jpg')
-        save_fig(fig_x_1, fig_y_rgb_1, 'TSN-RGB', 'bucket1/' + video_title + '_rgb' + '_Part6.jpg')
-        save_fig(fig_x_1, fig_y_opf_1, 'TSN-Flow', 'bucket1/' + video_title + '_opf' + '_Part6.jpg')
+        save_fig(fig_x_1, fig_y_1, 'TSN', 'result/529005218_' + video_title + '_Part6.jpg')
+        save_fig(fig_x_1, fig_y_rgb_1, 'TSN-RGB', 'result/529005218_' + video_title + '_rgb' + '_Part6.jpg')
+        save_fig(fig_x_1, fig_y_opf_1, 'TSN-Flow', 'result/529005218_' + video_title + '_opf' + '_Part6.jpg')
         rgb_whole_pred = {}
         opf_whole_pred = {}
         shutil.rmtree('record/')
