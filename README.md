@@ -38,4 +38,4 @@ GPUs: 1 x NVIDIA Tesla K80
 	If you want to train your own model, you need to revise some 'parser.add_argument', such as train_list, val_list, root_path and so on. If you only need to test real life videos, being focused on win-test.py is enough.
 
 # Test model for your own
-Run "test.py". You can change args in it.
+Run "win-test.py". You can change args in it.
