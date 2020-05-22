@@ -365,9 +365,9 @@ if __name__ == '__main__':
         fig_y_rgb_1.append(fig_y_rgb[-1])
         fig_y_opf_1.append(fig_y_opf[-1])
 
-        save_fig(fig_x_1, fig_y_1, 'TSN', 'result/529005218_' + video_title + '.jpg')
-        save_fig(fig_x_1, fig_y_rgb_1, 'TSN-RGB', 'result/529005218_' + video_title + '_rgb' + '.jpg')
-        save_fig(fig_x_1, fig_y_opf_1, 'TSN-Flow', 'result/529005218_' + video_title + '_opf' + '.jpg')
+        save_fig(fig_x_1, fig_y_1, 'TSN   ' + video_title, 'result/529005218_' + video_title + '.jpg')
+        save_fig(fig_x_1, fig_y_rgb_1, 'TSN-RGB   ' + video_title, 'result/529005218_' + video_title + '_rgb' + '.jpg')
+        save_fig(fig_x_1, fig_y_opf_1, 'TSN-Flow   ' + video_title, 'result/529005218_' + video_title + '_opf' + '.jpg')
         rgb_whole_pred = {}
         opf_whole_pred = {}
         shutil.rmtree('record/')
