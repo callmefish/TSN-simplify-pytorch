@@ -40,6 +40,7 @@ parser.add_argument('--k', type=int, default=3)
 parser.add_argument('--dropout', type=float, default=0.1)
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
+parser.add_argument('--video_file_name', type=str, default='sample_video/')
 
 args = parser.parse_args()
 rgb_whole_pred = {}
@@ -231,7 +232,7 @@ def save_fig(x, y, title, save_path):
 
 if __name__ == '__main__':
     make_sure_dir('result/')
-    path = 'new_test/'
+    path = args.video_file_name
     path_sub = os.listdir(path)
     path_sub.sort()
     for video_name in path_sub:
