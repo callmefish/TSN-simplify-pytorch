@@ -28,11 +28,11 @@ GPUs: 1 x NVIDIA Tesla K80
  
 
  3. Download sample video:\
-	[sample_video](https://storage.cloud.google.com/ucf101_for_rar/sample_video.zip?authuser=1) (gs://ucf101_for_rar/sample_video.zip): twelve sample videos.\
+	[sample_video](https://storage.cloud.google.com/ucf101_for_rar/sample_video.zip?authuser=1) (gs://ucf101_for_rar/sample_video.zip): twelve sample videos.
 	
  4. Download model:\
 	[668_resnet101_flow_model_best.pth.tar](https://storage.cloud.google.com/ucf101_for_rar/668_resnet101_flow_model_best.pth.tar?authuser=1) (gs://ucf101_for_rar/668_resnet101_flow_model_best.pth.tar): Motion stream model.\
-	[668_resnet101_rgb_model_best.pth.tar](https://storage.cloud.google.com/ucf101_for_rar/668_resnet101_rgb_model_best.pth.tar?authuser=1) (gs://ucf101_for_rar/668_resnet101_rgb_model_best.pth.tar): Spatial stream model.\
+	[668_resnet101_rgb_model_best.pth.tar](https://storage.cloud.google.com/ucf101_for_rar/668_resnet101_rgb_model_best.pth.tar?authuser=1) (gs://ucf101_for_rar/668_resnet101_rgb_model_best.pth.tar): Spatial stream model.
 
  5. Before training model:\
 	If you want to train your own model, you need to revise some 'parser.add_argument', such as train_list, val_list, root_path and so on. If you only need to test real life videos, being focused on win-test.py is enough.
