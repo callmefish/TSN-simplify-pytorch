@@ -23,10 +23,6 @@ GPUs: 1 x NVIDIA Tesla K80
  	git clone https://github.com/callmefish/TSN-simplify-pytorch.git
  	```
  2. Download dataset and unzip them (if you don't want to train model, just ignore this step):\
-	[rgb_475](https://storage.cloud.google.com/ucf101_for_rar/video_data_475.zip?authuser=1)(gs://ucf101_for_rar/video_data_475.zip): A dataset of RGB frames extracted from 475 action videos\
-	[opt_475](https://storage.cloud.google.com/ucf101_for_rar/opt_475.zip?authuser=1)(gs://ucf101_for_rar/opt_475.zip): A dataset of TVL1 optical flow frames extracted from 475 action videos.\
-	[rgb_575](https://storage.cloud.google.com/ucf101_for_rar/video_data_575.zip?authuser=1) (gs://ucf101_for_rar/video_data_575.zip)(optional): A dataset of RGB frames extracted from 475 action videos.\
-	[opt_575](https://storage.cloud.google.com/ucf101_for_rar/opt_575.zip?authuser=1) (gs://ucf101_for_rar/opt_575.zip) (optional): A dataset of TVL1 optical flow frames extracted from 475 action videos.\
 	[video_data_668](https://storage.cloud.google.com/ucf101_for_rar/video_data_668.zip?authuser=1) (gs://ucf101_for_rar/video_data_575.zip)(optional): A dataset of RGB frames and TVL1 optical flow frames extracted from 668 action videos.
 	
  
