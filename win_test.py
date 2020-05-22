@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(
     description="Standard video-level testing")
 
 parser.add_argument('--test_list', type=str, default='video_test_list.txt')
-parser.add_argument('--flow_weights', type=str, default='570_resnet101_flow_model_best.pth.tar')
-parser.add_argument('--rgb_weights', type=str, default='570_resnet101_rgb_model_best.pth.tar')
+parser.add_argument('--flow_weights', type=str, default='668_resnet101_flow_model_best.pth.tar')
+parser.add_argument('--rgb_weights', type=str, default='668_resnet101_rgb_model_best.pth.tar')
 parser.add_argument('--arch', type=str, default="resnet101")
 parser.add_argument('--batch_size', type=int, default=12)
 parser.add_argument('--save_scores', type=str, default="record/")
